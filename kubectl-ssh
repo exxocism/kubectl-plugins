@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env zsh
 
 set -eu
 
@@ -33,36 +33,36 @@ to_json() {
 
 [ $# -eq 0 ] && usage
 
-KUBECTL="$(type -p kubectl)"
+KUBECTL="$(which kubectl)"
 COMMAND="/bin/sh"
-USERNAME="root"
+UNAME="root"
 CONTAINER="NONE"
-NAMESPACE="NONE"
+NAMESPACE="default"
 
 while getopts "hdp:n:u:c:" arg; do
   case $arg in
-    p) # Specify pod name.
-      POD=${OPTARG}
-      ;;
-    n) # Specify namespace
-      NAMESPACE=${OPTARG}
-      KUBECTL+=" --namespace=${OPTARG}"
-      ;;
-    u) # Specify user
-      USERNAME=${OPTARG}
-      ;;
-    c) # Specify container
-      CONTAINER=${OPTARG}
-      ;;
-    d) # Enable debug mode
-      set -x
-      ;;
-    h) # Display help.
-      usage
-      ;;
-    \?)
-      usage
-      ;;
+  p) # Specify pod name.
+    POD=${OPTARG}
+    ;;
+  n) # Specify namespace
+    NAMESPACE=${OPTARG}
+    KUBECTL+=" --namespace=${OPTARG}"
+    ;;
+  u) # Specify user
+    UNAME=${OPTARG}
+    ;;
+  c) # Specify container
+    CONTAINER=${OPTARG}
+    ;;
+  d) # Enable debug mode
+    set -x
+    ;;
+  h) # Display help.
+    usage
+    ;;
+  \?)
+    usage
+    ;;
   esac
 done
 
@@ -84,7 +84,7 @@ if [[ $# -gt 0 ]]; then
   fi
 fi
 
-echo -e "\nConnecting...\nPod: ${POD}\nNamespace: ${NAMESPACE}\nUser: ${USERNAME}\nContainer: ${CONTAINER}\nCommand: $COMMAND\n"
+echo -e "\nConnecting...\nPod: ${POD}\nNamespace: ${NAMESPACE}\nUser: ${UNAME}\nContainer: ${CONTAINER}\nCommand: $COMMAND\n"
 # $temp_container is the name of our temporary container which we use to connect behind the scenes. Will be cleaned up automatically.
 temp_container="ssh-pod-${RANDOM}"
 
@@ -100,7 +100,7 @@ if [[ "$TOLERATION_VALUE" ]]; then
   TOLERATION_EFFECT=$($KUBECTL get pod "${POD}" -ojsonpath='{.spec.tolerations[].effect}')
   TOLERATIONS='"tolerations": [{"effect": "'$TOLERATION_EFFECT'","key": "'$TOLERATION_KEY'","operator": "'$TOLERATION_OPERATOR'","value": "'$TOLERATION_VALUE'"}],'
 else
-    TOLERATIONS=''
+  TOLERATIONS=''
 fi
 
 if [[ ${CONTAINER} != "NONE" ]]; then
@@ -133,7 +133,7 @@ read -r -d '' OVERRIDES <<EOF || :
                   "--privileged",
                   "-it",
                   "-u",
-                  "${USERNAME}",
+                  "${UNAME}",
                   "${CONTAINERID}",
                   $(to_json "${COMMAND}")
                 ],
