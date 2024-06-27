@@ -30,7 +30,6 @@ to_json() {
   echo -en "$p"
 }
 
-
 [ $# -eq 0 ] && usage
 
 KUBECTL="$(which kubectl)"
@@ -66,7 +65,7 @@ while getopts "hdp:n:u:c:" arg; do
   esac
 done
 
-shift $((OPTIND-1))
+shift $((OPTIND - 1))
 if [[ -z ${1+x} ]]; then
   echo "Error: You have to specify the pod name" >&2
   usage
@@ -89,7 +88,7 @@ echo -e "\nConnecting...\nPod: ${POD}\nNamespace: ${NAMESPACE}\nUser: ${UNAME}\n
 temp_container="ssh-pod-${RANDOM}"
 
 # We want to mount the docker socket on the node of the pod we're exec'ing into.
-NODENAME=$( ${KUBECTL} get pod "${POD}" -o go-template='{{.spec.nodeName}}' )
+NODENAME=$(${KUBECTL} get pod "${POD}" -o go-template='{{.spec.nodeName}}')
 NODESELECTOR='"nodeSelector": {"kubernetes.io/hostname": "'$NODENAME'"},'
 
 # Adds toleration if the target container runs on a tainted node. Assumes no more than one taint. Change if yours have more than one or are configured differently.
@@ -104,9 +103,9 @@ else
 fi
 
 if [[ ${CONTAINER} != "NONE" ]]; then
-  DOCKER_CONTAINERID=$( eval "$KUBECTL" get pod "${POD}" -o go-template="'{{ range .status.containerStatuses }}{{ if eq .name \"${CONTAINER}\" }}{{ .containerID }}{{ end }}{{ end }}'" )
+  DOCKER_CONTAINERID=$(eval "$KUBECTL" get pod "${POD}" -o go-template="'{{ range .status.containerStatuses }}{{ if eq .name \"${CONTAINER}\" }}{{ .containerID }}{{ end }}{{ end }}'")
 else
-  DOCKER_CONTAINERID=$( $KUBECTL get pod "${POD}" -o go-template='{{ (index .status.containerStatuses 0).containerID }}' )
+  DOCKER_CONTAINERID=$($KUBECTL get pod "${POD}" -o go-template='{{ (index .status.containerStatuses 0).containerID }}')
 fi
 CONTAINERID=${DOCKER_CONTAINERID#*//}
 

@@ -5,7 +5,7 @@ require 'date'
 
 class Numeric
   def duration
-    secs  = self.to_int
+    secs  = to_int
     mins  = secs / 60
     hours = mins / 60
     days  = hours / 24
@@ -26,46 +26,38 @@ namespace = `kubectl config view --template='{{ range .contexts }}{{ if eq .name
 pods_json = `kubectl --namespace #{namespace} get pods -o json`
 pods_parsed = JSON.parse(pods_json)
 
-puts "The Magnificent Aging Plugin."
+puts 'The Magnificent Aging Plugin.'
 
-data = Hash.new
+data = {}
 max_name_length = 0
 max_age = 0
 min_age = 0
 
-pods_parsed['items'].each { |pod|
+pods_parsed['items'].each do |pod|
   name = pod['metadata']['name']
   creation = pod['metadata']['creationTimestamp']
 
   age = Time.now - DateTime.parse(creation).to_time
   data[name] = age
 
-  if name.length > max_name_length
-    max_name_length = name.length
-  end
-  if age > max_age
-    max_age = age
-  end
-  if age < min_age
-    min_age = age
-  end
-} 
-
-data = data.sort_by{ |name, age| age }
-
-if data.length > 0
-  puts ""
-  data.each { |name, age|
-    output = ""
-    output += name.rjust(max_name_length, ' ') + ": "
-    bar_size = (age*80/max_age).ceil 
-    bar_size.times{ output += "▒" }
-    output += " " + age.duration
-    puts output
-    puts ""
-  }
-else
-  puts "No pods"
+  max_name_length = name.length if name.length > max_name_length
+  max_age = age if age > max_age
+  min_age = age if age < min_age
 end
 
+data = data.sort_by { |_name, age| age }
 
+if data.length > 0
+  puts ''
+  data.each do |name, age|
+    output = ''
+    output += name.rjust(max_name_length, ' ') + ': '
+    bar_size = (age * 80 / max_age).ceil
+    bar_size.times { output += '▒' }
+    output += ' ' + age.duration
+    puts output
+    puts ''
+  end
+else
+  puts 'No pods'
+end

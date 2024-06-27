@@ -27,7 +27,8 @@ function list_clusters() {
     let count=count+1
   done
 
-    echo; read -p "Enter the number of the cluster to use: " SELECTION
+  echo
+  read -p "Enter the number of the cluster to use: " SELECTION
   SELECTION=$(($SELECTION - 1))
   CLUSTER="${CLUSTERS[$SELECTION]}"
 
@@ -66,13 +67,11 @@ function switch_cluster() {
 
 }
 
-
 ### Switch namespace for current context
 function switch_namespace() {
   kubectl config set-context $(kubectl config current-context) --namespace="$NAMESPACE" 1>/dev/null
   exit 0
 }
-
 
 if [[ "$@" =~ " -l" ]]; then
   list_clusters
