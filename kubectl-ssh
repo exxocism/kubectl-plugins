@@ -108,54 +108,56 @@ else
   DOCKER_CONTAINERID=$($KUBECTL get pod "${POD}" -o go-template='{{ (index .status.containerStatuses 0).containerID }}')
 fi
 CONTAINERID=${DOCKER_CONTAINERID#*//}
+SCHEMA=${DOCKER_CONTAINERID%%://*}
+
+if [[ $SCHEMA == "docker" ]]; then
+  echo "Pod is running in Docker runtime, using docker exec"
+  CONTAINER_ARG='"docker", "exec", "--privileged", "-it", "-u", "'$UNAME'", "'$CONTAINERID'", '$(to_json "${COMMAND}")''
+  VOLUME_MOUNTS='{ "mountPath": "/var/run/docker.sock", "name": "docker-sock" }'
+  VOLUMES='{ "name": "docker-sock", "hostPath": { "path": "/var/run/docker.sock" } }'
+elif [[ $SCHEMA == "containerd" ]]; then
+  echo "Pod is running in Containerd runtime, using containerd exec"
+  CONTAINER_ARG='"ctr", "-n", "k8s.io", "t", "exec", "-t", "--user", "'$UNAME'", "--exec-id", "'$temp_container'", "'$CONTAINERID'", '$(to_json "${COMMAND}")''
+  VOLUME_MOUNTS='
+    { "mountPath": "/run/dockershim.sock", "name": "dockershim" },
+    { "mountPath": "/var/lib/containerd", "name": "images" },
+    { "mountPath": "/run/containerd", "name": "containerd" },
+    { "mountPath": "/etc/containerd/config.toml", "name": "credential" }
+  '
+  VOLUMES='
+    { "name": "dockershim", "hostPath": { "path": "/run/dockershim.sock" } },
+    { "name": "images", "hostPath": { "path": "/var/lib/containerd" } },
+    { "name": "containerd", "hostPath": { "path": "/run/containerd" } },
+    { "name": "credential", "hostPath": { "path": "/etc/containerd/config.toml" } }
+  '
+fi
 
 read -r -d '' OVERRIDES <<EOF || :
 {
     "apiVersion": "v1",
-    "metadata": {
-      "annotations": {
-        "sidecar.istio.io/inject" : "false"
-      }
-    },
+    "metadata": { "annotations": { "sidecar.istio.io/inject" : "false" } },
     "spec": {
-        "securityContext": { "runAsUser": 0 },
+        "securityContext": { "runAsUser": 0, "privileged": true },
         "containers": [
             {
                 "image": "docker",
                 "name": "'$temp_container'",
+                "securityContext": { "privileged": true },
                 "stdin": true,
                 "stdinOnce": true,
                 "tty": true,
-                "restartPolicy": "Never",
                 "args": [
-                  "exec",
-                  "--privileged",
-                  "-it",
-                  "-u",
-                  "${UNAME}",
-                  "${CONTAINERID}",
-                  $(to_json "${COMMAND}")
+                  $CONTAINER_ARG
                 ],
                 "volumeMounts": [
-                    {
-                        "mountPath": "/var/run/docker.sock",
-                        "name": "docker"
-                    }
+                  $VOLUME_MOUNTS
                 ]
             }
         ],
-
         $NODESELECTOR
-
         $TOLERATIONS
-
         "volumes": [
-            {
-                "name": "docker",
-                "hostPath": {
-                    "path": "/var/run/docker.sock"
-                }
-            }
+          $VOLUMES
         ]
     }
 }
