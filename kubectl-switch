@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/zsh
 
 # If only one argument is given when calling this script, we do a namespace switch.
 # If a second argument exists when calling this script, we do a cluster switch.
@@ -18,66 +18,65 @@ CLUSTER="$2"
 
 ### List the clusters to choose from
 function list_clusters() {
-    IFS=$'\n'
-    CLUSTERS=($(kubectl config get-clusters | grep -v NAME | sort))
-    count=1
+  IFS=$'\n'
+  CLUSTERS=($(kubectl config get-clusters | grep -v NAME | sort))
+  count=1
 
-    for i in ${!CLUSTERS[@]}; do
-        echo "[$count]: ${CLUSTERS[$i]}"
-        let count=count+1
-    done
+  for i in ${!CLUSTERS[@]}; do
+    echo "[$count]: ${CLUSTERS[$i]}"
+    let count=count+1
+  done
 
-    echo; read -p "Enter the number of the cluster to use: " SELECTION
-    SELECTION=$(($SELECTION - 1))
-    CLUSTER="${CLUSTERS[$SELECTION]}"
+  echo
+  read -p "Enter the number of the cluster to use: " SELECTION
+  SELECTION=$(($SELECTION - 1))
+  CLUSTER="${CLUSTERS[$SELECTION]}"
 
-    switch_cluster
+  switch_cluster
 }
 
 ### Switch cluster context
 function switch_cluster() {
   # Verify it's a valid cluster name with kubectl
-    CLUSTER_NAME=$(kubectl config get-clusters | grep "$CLUSTER$")
+  CLUSTER_NAME=$(kubectl config get-clusters | grep "$CLUSTER$")
   # Fallback in case the user has renamed their context for the cluster.
+  if [ -z "${CLUSTER_NAME}" ]; then
+    # Allow fuzzying on context name
+    CLUSTER_NAME=($(kubectl config get-contexts -o name | grep $CLUSTER))
+    # If globbing gives more than one match, discard those and look for an exact match
+    if [ ${#CLUSTER_NAME[@]} -ne 1 ]; then
+      unset CLUSTER_NAME
+      CLUSTER_NAME=$(kubectl config get-contexts -o name | grep $CLUSTER$)
+    fi
+    # If all lookups have failed, exit 1.
     if [ -z "${CLUSTER_NAME}" ]; then
-      # Allow fuzzying on context name
-        CLUSTER_NAME=($(kubectl config get-contexts -o name | grep $CLUSTER))
-      # If globbing gives more than one match, discard those and look for an exact match
-        if [ ${#CLUSTER_NAME[@]} -ne 1 ]; then
-            unset CLUSTER_NAME
-            CLUSTER_NAME=$(kubectl config get-contexts -o name | grep $CLUSTER$)
-        fi
-      # If all lookups have failed, exit 1.
-        if [ -z "${CLUSTER_NAME}" ]; then
-            RED=$(echo -en '\033[00;31m')
-            YELLOW=$(echo -en '\033[00;33m')
-            RESTORE=$(echo -en '\033[0m')
-            echo -e "\n${RED}Error on lookup. Cannot find:${YELLOW} $CLUSTER${RESTORE}\n"
-            exit 1
-        fi
+      RED=$(echo -en '\033[00;31m')
+      YELLOW=$(echo -en '\033[00;33m')
+      RESTORE=$(echo -en '\033[0m')
+      echo -e "\n${RED}Error on lookup. Cannot find:${YELLOW} $CLUSTER${RESTORE}\n"
+      exit 1
     fi
-    CLUSTER="$CLUSTER_NAME"
+  fi
+  CLUSTER="$CLUSTER_NAME"
+  kubectl config use-context $CLUSTER >/dev/null 2>&1
+  if [ $? -ne 0 ]; then
+    CLUSTER=$(kubectl config get-contexts | grep " $CLUSTER " | sed 's|\*||g' | awk '{print $1}') >/dev/null 2>&1
     kubectl config use-context $CLUSTER >/dev/null 2>&1
-    if [ $? -ne 0 ]; then
-        CLUSTER=$(kubectl config get-contexts | grep " $CLUSTER " | sed 's|\*||g' | awk '{print $1}') >/dev/null 2>&1
-        kubectl config use-context $CLUSTER >/dev/null 2>&1
-    fi
-    [ $? -ne 0 ] && echo -e "\n####### TYPO!  Please re-check the spelling for cluster: $2" && exit 1
+  fi
+  [ $? -ne 0 ] && echo -e "\n####### TYPO!  Please re-check the spelling for cluster: $2" && exit 1
 
 }
-
 
 ### Switch namespace for current context
 function switch_namespace() {
-    kubectl config set-context $(kubectl config current-context) --namespace="$NAMESPACE" 1>/dev/null
-    exit 0
+  kubectl config set-context $(kubectl config current-context) --namespace="$NAMESPACE" 1>/dev/null
+  exit 0
 }
 
-
 if [[ "$@" =~ " -l" ]]; then
-    list_clusters
+  list_clusters
 elif [[ "$@" =~ "cluster" ]]; then
-    switch_cluster
+  switch_cluster
 elif [[ ! "$@" =~ "cluster" ]]; then
-    switch_namespace
+  switch_namespace
 fi

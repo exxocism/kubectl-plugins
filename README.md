@@ -11,28 +11,28 @@ A collection of plugins for kubectl integration (for Kubectl versions >= 1.12.0)
 - To upgrade your kubectl version via homebrew: ```brew upgrade kubectl```, or via gcloud: ```gcloud components update```
 - The kubectl-ip plugin requires jq ( brew/apt/yum install jq )
 - All coding was written to maintain compatibility across both BSD and GNU.
-- Requires Bash.
+- Requires zsh.
 
 ## Install on Linux/Mac
 ```bash
 git clone https://github.com/jordanwilson230/kubectl-plugins.git
 cd kubectl-plugins
 ./install-plugins.sh
-source ~/.bash_profile
+source ~/.zprofile
 ```
 #### To Uninstall
 ```
 rm -rf ~/.kube/plugins/jordanwilson230
-ex '+g/jordanwilson230/d' -cwq ~/.bash_profile
+ex '+g/jordanwilson230/d' -cwq ~/.zprofile
 ```
 Remove the ```image``` plugin:
 ```
-ex '+g/IMG_REGISTRY=/d' -cwq ~/.bash_profile
+ex '+g/IMG_REGISTRY=/d' -cwq ~/.zprofile
 ```
 Remove the ```prompt``` plugin:
 ```
-ex '+g/function kubectl()/d' -cwq ~/.bash_profile
-ex '+g/KUBECTL_\(.*\)_PROMPT/d' -cwq ~/.bash_profile
+ex '+g/function kubectl()/d' -cwq ~/.zprofile
+ex '+g/KUBECTL_\(.*\)_PROMPT/d' -cwq ~/.zprofile
 ```
 
 
