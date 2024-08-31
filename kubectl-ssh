@@ -129,8 +129,8 @@ elif [[ $SCHEMA == "containerd" ]]; then
 
     ATTACH_IMAGE="rancher/k3s"
 
-    OPTIONAL_COMMAND='"command": ["/bin/sh"],'
-    CONTAINER_ARG=''
+    OPTIONAL_COMMAND='"command": ["ctr"],'
+    CONTAINER_ARG='"-n", "k8s.io", "t", "exec", "-t", "--user", "'$UNAME'", "--exec-id", "'$temp_container'", "'$CONTAINERID'", '$(to_json "${COMMAND}")''
 
     VOLUME_MOUNTS='
       { "mountPath": "/var/lib/rancher/k3s/agent/etc", "name": "agent" },
