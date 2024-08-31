@@ -16,10 +16,7 @@ jobs:
 
     - name: Setup Minikube
       id: minikube
-      uses: CodingNagger/minikube-setup-action@v1.0.6
-
-    - name: Start Minikube
-      run: eval ${{ steps.minikube.outputs.launcher }} && (printf "\n\u2705[PASS] Minikube Ready\n") || (printf "\n\u274c [FAIL] Error while starting Minikube.\n" && exit 1)
+      uses: medyagh/setup-minikube@v0.0.18
 
     - name: Sanity Check
       run: kubectl get pods -nkube-system && (printf "\n\u2705[PASS] Sanity Check (get pods)\n") || (printf "\n\u274c [FAIL] Unable to retrieve pod list.\n" && exit 1)
