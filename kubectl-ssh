@@ -37,6 +37,7 @@ COMMAND="/bin/sh"
 UNAME="root"
 CONTAINER="NONE"
 NAMESPACE="default"
+NAMESPACE_ARG=""
 
 while getopts "hdp:n:u:c:" arg; do
   case $arg in
@@ -45,7 +46,7 @@ while getopts "hdp:n:u:c:" arg; do
     ;;
   n) # Specify namespace
     NAMESPACE=${OPTARG}
-    KUBECTL+=" --namespace=${OPTARG}"
+    NAMESPACE_ARG="--namespace=${OPTARG}"
     ;;
   u) # Specify user
     UNAME=${OPTARG}
@@ -88,24 +89,24 @@ echo -e "\nConnecting...\nPod: ${POD}\nNamespace: ${NAMESPACE}\nUser: ${UNAME}\n
 temp_container="ssh-pod-${RANDOM}"
 
 # We want to mount the docker socket on the node of the pod we're exec'ing into.
-NODENAME=$(${KUBECTL} get pod "${POD}" -o go-template='{{.spec.nodeName}}')
+NODENAME=$(${KUBECTL} ${NAMESPACE_ARG} get pod "${POD}" -o go-template='{{.spec.nodeName}}')
 NODESELECTOR='"nodeSelector": {"kubernetes.io/hostname": "'$NODENAME'"},'
 
 # Adds toleration if the target container runs on a tainted node. Assumes no more than one taint. Change if yours have more than one or are configured differently.
-TOLERATION_VALUE=$($KUBECTL get pod "${POD}" -ojsonpath='{.spec.tolerations[].value}') >/dev/null 2>&1
+TOLERATION_VALUE=$($KUBECTL $NAMESPACE_ARG get pod "${POD}" -ojsonpath='{.spec.tolerations[].value}') >/dev/null 2>&1
 if [[ "$TOLERATION_VALUE" ]]; then
-  TOLERATION_KEY=$($KUBECTL get pod "${POD}" -ojsonpath='{.spec.tolerations[].key}')
-  TOLERATION_OPERATOR=$($KUBECTL get pod "${POD}" -ojsonpath='{.spec.tolerations[].operator}')
-  TOLERATION_EFFECT=$($KUBECTL get pod "${POD}" -ojsonpath='{.spec.tolerations[].effect}')
+  TOLERATION_KEY=$($KUBECTL $NAMESPACE_ARG get pod "${POD}" -ojsonpath='{.spec.tolerations[].key}')
+  TOLERATION_OPERATOR=$($KUBECTL $NAMESPACE_ARG get pod "${POD}" -ojsonpath='{.spec.tolerations[].operator}')
+  TOLERATION_EFFECT=$($KUBECTL $NAMESPACE_ARG get pod "${POD}" -ojsonpath='{.spec.tolerations[].effect}')
   TOLERATIONS='"tolerations": [{"effect": "'$TOLERATION_EFFECT'","key": "'$TOLERATION_KEY'","operator": "'$TOLERATION_OPERATOR'","value": "'$TOLERATION_VALUE'"}],'
 else
   TOLERATIONS=''
 fi
 
 if [[ ${CONTAINER} != "NONE" ]]; then
-  DOCKER_CONTAINERID=$(eval "$KUBECTL" get pod "${POD}" -o go-template="'{{ range .status.containerStatuses }}{{ if eq .name \"${CONTAINER}\" }}{{ .containerID }}{{ end }}{{ end }}'")
+  DOCKER_CONTAINERID=$(eval "$KUBECTL" $NAMESPACE_ARG get pod "${POD}" -o go-template="'{{ range .status.containerStatuses }}{{ if eq .name \"${CONTAINER}\" }}{{ .containerID }}{{ end }}{{ end }}'")
 else
-  DOCKER_CONTAINERID=$($KUBECTL get pod "${POD}" -o go-template='{{ (index .status.containerStatuses 0).containerID }}')
+  DOCKER_CONTAINERID=$($KUBECTL $NAMESPACE_ARG get pod "${POD}" -o go-template='{{ (index .status.containerStatuses 0).containerID }}')
 fi
 CONTAINERID=${DOCKER_CONTAINERID#*//}
 SCHEMA=${DOCKER_CONTAINERID%%://*}
@@ -163,6 +164,6 @@ read -r -d '' OVERRIDES <<EOF || :
 }
 EOF
 
-trap '$KUBECTL delete pod $temp_container >/dev/null 2>&1 &' 0 1 2 3 15
+trap '$KUBECTL $NAMESPACE_ARG delete pod $temp_container >/dev/null 2>&1 &' 0 1 2 3 15
 
-eval "$KUBECTL" run -it --restart=Never --image=docker --overrides="'${OVERRIDES}'" "$temp_container"
+eval "$KUBECTL" $NAMESPACE_ARG run -it --restart=Never --image=docker --overrides="'${OVERRIDES}'" "$temp_container"
