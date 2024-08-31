@@ -1,19 +1,22 @@
 name: "CI"
 on: [pull_request, push]
 jobs:
-  kubectl-plugins-check:
-    name: Validate Plugins
+  kubectl-plugins-check-minikube:
+    name: Validate from Minikube
     runs-on: ubuntu-latest
     steps:
     - name: Checkout kubectl-plugins repo
       uses: actions/checkout@v1
       with:
-        repository: jordanwilson230/kubectl-plugins
+        repository: exxocism/kubectl-plugins
         ref: ${{ github.head_ref }}
+
+    - name: Install dependencies - conntrack, zsh
+      run: sudo apt-get update && sudo apt-get install -y conntrack zsh
 
     - name: Setup Minikube
       id: minikube
-      uses: CodingNagger/minikube-setup-action@v1.0.2
+      uses: CodingNagger/minikube-setup-action@v1.0.6
 
     - name: Start Minikube
       run: eval ${{ steps.minikube.outputs.launcher }} && (printf "\n\u2705[PASS] Minikube Ready\n") || (printf "\n\u274c [FAIL] Error while starting Minikube.\n" && exit 1)
@@ -38,6 +41,7 @@ jobs:
     - name: kubectl ssh
       shell: zsh -l {0}
       run: |
+        kubectl create sa default
         kubectl run test --restart=Never --image=debian --command=true -- sleep 300
         sleep 10
         # Grant shell login for games user
