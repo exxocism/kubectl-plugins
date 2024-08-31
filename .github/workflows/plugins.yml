@@ -38,7 +38,6 @@ jobs:
     - name: kubectl ssh
       shell: zsh -l {0}
       run: |
-        kubectl create sa default
         kubectl run test --restart=Never --image=debian --command=true -- sleep 300
         sleep 10
         # Grant shell login for games user
