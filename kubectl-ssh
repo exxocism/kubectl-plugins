@@ -91,6 +91,7 @@ temp_container="ssh-pod-${RANDOM}"
 # We want to mount the docker socket on the node of the pod we're exec'ing into.
 NODENAME=$(${KUBECTL} ${NAMESPACE_ARG} get pod "${POD}" -o go-template='{{.spec.nodeName}}')
 NODESELECTOR='"nodeSelector": {"kubernetes.io/hostname": "'$NODENAME'"},'
+K3S_NODE=$(${KUBECTL} ${NAMESPACE_ARG} get node $NODENAME -o go-template='{{.metadata.annotations}}' | grep 'k3s.io') || K3S_NODE=""
 
 # Adds toleration if the target container runs on a tainted node. Assumes no more than one taint. Change if yours have more than one or are configured differently.
 TOLERATION_VALUE=$($KUBECTL $NAMESPACE_ARG get pod "${POD}" -ojsonpath='{.spec.tolerations[].value}') >/dev/null 2>&1
@@ -110,6 +111,8 @@ else
 fi
 CONTAINERID=${DOCKER_CONTAINERID#*//}
 SCHEMA=${DOCKER_CONTAINERID%%://*}
+ATTACH_IMAGE="docker"
+OPTIONAL_COMMAND=""
 
 if [[ $SCHEMA == "docker" ]]; then
   echo "Pod is running in Docker runtime, using docker exec"
@@ -119,18 +122,44 @@ if [[ $SCHEMA == "docker" ]]; then
 elif [[ $SCHEMA == "containerd" ]]; then
   echo "Pod is running in Containerd runtime, using containerd exec"
   CONTAINER_ARG='"ctr", "-n", "k8s.io", "t", "exec", "-t", "--user", "'$UNAME'", "--exec-id", "'$temp_container'", "'$CONTAINERID'", '$(to_json "${COMMAND}")''
-  VOLUME_MOUNTS='
-    { "mountPath": "/run/dockershim.sock", "name": "dockershim" },
-    { "mountPath": "/var/lib/containerd", "name": "images" },
-    { "mountPath": "/run/containerd", "name": "containerd" },
-    { "mountPath": "/etc/containerd/config.toml", "name": "credential" }
-  '
-  VOLUMES='
-    { "name": "dockershim", "hostPath": { "path": "/run/dockershim.sock" } },
-    { "name": "images", "hostPath": { "path": "/var/lib/containerd" } },
-    { "name": "containerd", "hostPath": { "path": "/run/containerd" } },
-    { "name": "credential", "hostPath": { "path": "/etc/containerd/config.toml" } }
-  '
+
+  #if K3S_NODE is not empty, we are running on a k3s cluster
+  if [[ -n $K3S_NODE ]]; then
+    echo "Pod is running in K3s runtime, using k3s exec"
+
+    ATTACH_IMAGE="rancher/k3s"
+
+    OPTIONAL_COMMAND='"command": ["ctr"],'
+    CONTAINER_ARG='"-n", "k8s.io", "t", "exec", "-t", "--user", "'$UNAME'", "--exec-id", "'$temp_container'", "'$CONTAINERID'", '$(to_json "${COMMAND}")''
+
+    VOLUME_MOUNTS='
+      { "mountPath": "/var/lib/rancher/k3s/agent/etc", "name": "agent" },
+      { "mountPath": "/var/lib/rancher/k3s/agent/containerd", "name": "internal" },
+      { "mountPath": "/etc/rancher", "name": "config" },
+      { "mountPath": "/run/containerd", "name": "fifo" },
+      { "mountPath": "/run/k3s", "name": "containerd" }
+    '
+    VOLUMES='
+      { "name": "agent", "hostPath": { "path": "/var/lib/rancher/k3s/agent/etc" } },
+      { "name": "internal", "hostPath": { "path": "/var/lib/rancher/k3s/agent/containerd" } },
+      { "name": "config", "hostPath": { "path": "/etc/rancher" } },
+      { "name": "fifo", "hostPath": { "path": "/run/containerd" } },
+      { "name": "containerd", "hostPath": { "path": "/run/k3s" } }
+    '
+  else
+    VOLUME_MOUNTS='
+      { "mountPath": "/run/dockershim.sock", "name": "dockershim" },
+      { "mountPath": "/var/lib/containerd", "name": "images" },
+      { "mountPath": "/run/containerd", "name": "containerd" },
+      { "mountPath": "/etc/containerd/config.toml", "name": "credential" }
+    '
+    VOLUMES='
+      { "name": "dockershim", "hostPath": { "path": "/run/dockershim.sock" } },
+      { "name": "images", "hostPath": { "path": "/var/lib/containerd" } },
+      { "name": "containerd", "hostPath": { "path": "/run/containerd" } },
+      { "name": "credential", "hostPath": { "path": "/etc/containerd/config.toml" } }
+    '
+  fi
 fi
 
 read -r -d '' OVERRIDES <<EOF || :
@@ -141,12 +170,13 @@ read -r -d '' OVERRIDES <<EOF || :
         "securityContext": { "runAsUser": 0, "privileged": true },
         "containers": [
             {
-                "image": "docker",
+                "image": "'$ATTACH_IMAGE'",
                 "name": "'$temp_container'",
                 "securityContext": { "privileged": true },
                 "stdin": true,
                 "stdinOnce": true,
                 "tty": true,
+                $OPTIONAL_COMMAND
                 "args": [
                   $CONTAINER_ARG
                 ],
