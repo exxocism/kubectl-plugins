@@ -5,6 +5,8 @@ A collection of plugins for kubectl integration (for Kubectl versions >= 1.12.0)
 
 *A portion of these plugins are available on [krew](https://github.com/kubernetes-sigs/krew) as well.*
 
+Mine works on both docker and containerd based nodes: minikube, eks containerd, k3s
+
 ###### Note
 - These plugins are for kubectl versions at or above 1.12.0 only. Check your version via ```kubectl version```
 - For versions below 1.12.0, use the 1.11.0 branch.
