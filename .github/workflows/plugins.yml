@@ -27,6 +27,7 @@ jobs:
         run: |
           cd ../kubectl-plugins
           ./install-plugins.sh
+          source /home/$USER/.zprofile
           kubectl config set-context $(kubectl config current-context) --namespace=kube-system && (printf "\n\u2705[PASS] Installation Script.\n") || (printf "\n\u274c [FAIL] Installation error\n" && exit 1)
 
       - name: kubectl switch
@@ -34,6 +35,14 @@ jobs:
         run: |
           kubectl switch default
           [ $? -eq 0 ] && (printf "\n\u2705 [PASS] Switched to default namespace.\n") ||  (printf "\n\u274c [FAIL] Failed switching namespace.\n" && exit 1)
+
+      - name: kubectl install-nodeshell
+        shell: zsh -l {0}
+        run: |
+          kubectl install-nodeshell
+          source /home/$USER/.zprofile
+          RESULT=$(kubectl node-shell)
+          [[ $RESULT == "Please specify node name" ]] && (printf "\n\u2705 [PASS] Node Shell Installed.\n") ||  (printf "\n\u274c [FAIL] Node Shell Installation Failed.\n" && exit 1)
 
       - name: kubectl ssh
         shell: zsh -l {0}
@@ -106,7 +115,7 @@ jobs:
         run: |
           cd ../kubectl-plugins
           ./install-plugins.sh
-          source /home/runner/.zprofile
+          source /home/$USER/.zprofile
           kubectl config set-context $(kubectl config current-context) --namespace=kube-system && (printf "\n\u2705[PASS] Installation Script.\n") || (printf "\n\u274c [FAIL] Installation error\n" && exit 1)
 
       - name: kubectl switch
@@ -114,6 +123,14 @@ jobs:
         run: |
           kubectl switch default
           [ $? -eq 0 ] && (printf "\n\u2705 [PASS] Switched to default namespace.\n") ||  (printf "\n\u274c [FAIL] Failed switching namespace.\n" && exit 1)
+
+      - name: kubectl install-nodeshell
+        shell: zsh -l {0}
+        run: |
+          kubectl install-nodeshell
+          source /home/$USER/.zprofile
+          RESULT=$(kubectl node-shell)
+          [[ $RESULT == "Please specify node name" ]] && (printf "\n\u2705 [PASS] Node Shell Installed.\n") ||  (printf "\n\u274c [FAIL] Node Shell Installation Failed.\n" && exit 1)
 
       - name: kubectl ssh
         shell: zsh -l {0}
