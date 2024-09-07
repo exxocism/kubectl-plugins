@@ -16,6 +16,7 @@ Options:
   -n  The namespace to use for this request. If not provided, defaults to current namespace.
   -u  Username or UID (format: <name|uid>[:<group|gid>]). If not provided, defaults to root.
   -c  Container name. If not provided, the first container in the pod will be chosen
+  -o  Use an alternative nodeshell method
 EOF
   exit 0
 }
@@ -38,8 +39,9 @@ UNAME="root"
 CONTAINER="NONE"
 NAMESPACE="default"
 NAMESPACE_ARG=""
+RUN_MODE="default"
 
-while getopts "hdp:n:u:c:" arg; do
+while getopts "hdop:n:u:c:" arg; do
   case $arg in
   p) # Specify pod name.
     POD=${OPTARG}
@@ -56,6 +58,9 @@ while getopts "hdp:n:u:c:" arg; do
     ;;
   d) # Enable debug mode
     set -x
+    ;;
+  o) # Use an alternative nodeshell method
+    RUN_MODE="alternative"
     ;;
   h) # Display help.
     usage
@@ -160,6 +165,73 @@ elif [[ $SCHEMA == "containerd" ]]; then
       { "name": "credential", "hostPath": { "path": "/etc/containerd/config.toml" } }
     '
   fi
+fi
+
+if [[ $RUN_MODE == "alternative" ]]; then
+  echo -e "\nUsing NodeShell to connect to the pod..\n"
+
+  if !command -v kubectl-node_shell &>/dev/null; then
+    echo "node-shell is not installed. Install it by running the following command:"
+    echo "kubectl install-nodeshell"
+    exit 1
+  fi
+
+  echo "Detecting pid for the container.."
+  if [[ $SCHEMA == "docker" ]]; then
+    COMMAND_FOR_PID="sh -c 'docker inspect -f '{{.State.Pid}}' $CONTAINERID'"
+    PID=$(eval "$KUBECTL" $NAMESPACE_ARG node-shell $NODENAME -- $COMMAND_FOR_PID || echo "")
+
+    # if there were an error code colllected
+    if [[ $PID == $'sh: docker: not found\C-M' ]]; then
+      echo -e "Error: Could not find PID for the container. Installing docker to the node-shell..."
+
+      # Download the latest docker binary
+      NODESHELL_ARCH=$(eval "$KUBECTL" $NAMESPACE_ARG node-shell $NODENAME -- sh -c 'arch' | tr -d '\r')
+      DOCKER_URL=https://download.docker.com/linux/static/stable/$NODESHELL_ARCH
+      DOCKER_LATEST_VERSION=$(curl -L --fail "https://hub.docker.com/v2/repositories/library/docker/tags/?page_size=1000" |
+        jq '.results | .[] | .name' -r |
+        sed 's/latest//' |
+        grep -E '^[0-9.]+$' |
+        sort --version-sort |
+        tail -n 1)
+      DOCKER_FULL_URL=$DOCKER_URL/docker-$DOCKER_LATEST_VERSION.tgz
+      curl -L --fail $DOCKER_FULL_URL -o /tmp/docker.tgz
+
+      # Run the temporary node-shell to get the process id
+      eval "$KUBECTL" $NAMESPACE_ARG node-shell $NODENAME -- "sh -c 'sleep 180s'" &
+      sleep 5
+      NODESHELL_NAME=$(${KUBECTL} ${NAMESPACE_ARG} get pod -o go-template='{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}' | grep nsenter | head -n 1)
+      eval "$KUBECTL" $NAMESPACE_ARG cp /tmp/docker.tgz $NODESHELL_NAME:/tmp/docker.tgz
+      rm -f /tmp/docker.tgz
+
+      # Install docker
+      eval "$KUBECTL" $NAMESPACE_ARG exec $NODESHELL_NAME -- "sh -c 'tar -xvzf /tmp/docker.tgz --strip 1 -C /tmp; mount -o remount,exec /tmp'"
+
+      # Get the PID
+      COMMAND_FOR_PID="sh -c '/tmp/docker inspect -f '{{.State.Pid}}' $CONTAINERID'"
+      PID=$(eval "$KUBECTL" $NAMESPACE_ARG exec $NODESHELL_NAME -- $COMMAND_FOR_PID)
+      eval "$KUBECTL" $NAMESPACE_ARG delete pod $NODESHELL_NAME
+    fi
+  elif [[ $SCHEMA == "containerd" ]]; then
+    COMMAND_FOR_PID="sh -c 'ctr -n k8s.io task list'"
+    PID=$(eval "$KUBECTL" $NAMESPACE_ARG node-shell $NODENAME -- $COMMAND_FOR_PID | grep $CONTAINERID | sed -E 's/.* ([0-9]+) .*/\1/')
+    if [[ -z $PID ]]; then
+      echo "Error: Could not find PID for the container using containerd"
+      echo "Retrying with cri-o..."
+      COMMAND_FOR_PID="sh -c 'crictl inspect --output go-template --template '{{.info.pid}}' $CONTAINERID'"
+      PID=$(eval "$KUBECTL" $NAMESPACE_ARG node-shell $NODENAME -- $COMMAND_FOR_PID)
+    fi
+  fi
+
+  echo "Acquiring the userid.."
+  UID_CMD="id -u $UNAME"
+  COMMAND_FOR_UID="sh -c 'eval nsenter -t $PID -n -m -u -p $(to_json ${UID_CMD})'"
+  USER_ID=$(eval "$KUBECTL" $NAMESPACE_ARG node-shell $NODENAME -- $COMMAND_FOR_UID | tr -d '\r')
+
+  echo "Entering the container with PID: $PID and UID: $USER_ID"
+  COMMAND_FOR_NSENTER="sh -c 'eval nsenter -t $PID -S $USER_ID -n -m -u -p $(to_json ${COMMAND})'"
+  eval "$KUBECTL" $NAMESPACE_ARG node-shell $NODENAME -- $COMMAND_FOR_NSENTER
+  return 0
 fi
 
 read -r -d '' OVERRIDES <<EOF || :

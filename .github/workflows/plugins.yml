@@ -64,6 +64,26 @@ jobs:
             exit 1
           fi
 
+      - name: kubectl ssh (alternative)
+        shell: zsh -l {0}
+        run: |
+          kubectl run test-alter --restart=Never --image=debian --command=true -- sleep 300
+          sleep 10
+          # Grant shell login for games user
+          kubectl exec test-alter -- usermod -s /bin/sh games
+          # Necessary changes without attached tty
+          sed -i 's|"-it",||g' $(which kubectl-ssh)
+          sed -i 's| -it | --attach=true |g' $(which kubectl-ssh)
+          sed -i 's|"tty": true|"tty": false|g' $(which kubectl-ssh)
+          sed -i 's|"stdin": true|"stdin": false|g' $(which kubectl-ssh)
+          sed -i 's|"stdinOnce": true|"stdinOnce": false|g' $(which kubectl-ssh)
+          if [[ $(kubectl ssh -o -u games test-alter -- whoami | tail -n1) == "games" ]]; then 
+            printf "\n\u2705 Successfully logged in as games user.\n"
+          else
+            printf "\n\u274c Unable to login as games user.\n"
+            exit 1
+          fi
+
       - name: kubectl uptime
         shell: zsh -l {0}
         run: |
@@ -141,6 +161,22 @@ jobs:
           kubectl exec test -- usermod -s /bin/sh games
           sleep 10
           RESULT=$(kubectl ssh -u games test -- whoami | grep 'games' | tail -n1 | tr -d '\r')
+          if [[ $RESULT == "games" ]]; then 
+            printf "\n\u2705 Successfully logged in as games user.\n"
+          else
+            printf "\n\u274c Unable to login as games user.\n"
+            exit 1
+          fi
+
+      - name: kubectl ssh (alternative)
+        shell: zsh -l {0}
+        run: |
+          kubectl run test-alter --restart=Never --image=debian --command=true -- sleep 500
+          sleep 20
+          # Grant shell login for games user
+          kubectl exec test-alter -- usermod -s /bin/sh games
+          sleep 10
+          RESULT=$(kubectl ssh -o -u games test-alter -- whoami | grep 'games' | tail -n1 | tr -d '\r')
           if [[ $RESULT == "games" ]]; then 
             printf "\n\u2705 Successfully logged in as games user.\n"
           else
