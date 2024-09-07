@@ -89,9 +89,9 @@ jobs:
         shell: zsh -l {0}
         run: |
           curl -sfL https://get.k3s.io | sh -s -
-          export KUBECONFIG="/home/runner/.kube/config"
-          echo "export KUBECONFIG=/home/runner/.kube/config" >> /home/runner/.zprofile
-          mkdir /home/runner/.kube 2> /dev/null
+          export KUBECONFIG="/home/$USER/.kube/config"
+          echo "export KUBECONFIG=/home/$USER/.kube/config" >> /home/$USER/.zprofile
+          mkdir /home/$USER/.kube 2> /dev/null
           sudo k3s kubectl config view --raw > "$KUBECONFIG"
           chmod 600 "$KUBECONFIG"
 
