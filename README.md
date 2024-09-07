@@ -1,11 +1,17 @@
+# Difference from origin and fork
+- K8s distribution support: `minikube`, `eks`, `k3s`
+- Container support: `docker`, `containerd`, `cri-o`
+- SSH mode: `Classic`(pod) and `Alternative`(nodeshell + nsenter, with `-o` option)
+  ```bash
+  kubectl ssh -o <pod_name> -- /bin/bash
+  ```
+
 # kubectl-plugins
 [![CI Status](https://github.com/exxocism/kubectl-plugins/workflows/CI/badge.svg)](https://github.com/exxocism/kubectl-plugins/actions)
 
 A collection of plugins for kubectl integration (for Kubectl versions >= 1.12.0)
 
 *A portion of these plugins are available on [krew](https://github.com/kubernetes-sigs/krew) as well.*
-
-Mine works on both docker and containerd based nodes: minikube, eks containerd, k3s
 
 ###### Note
 - These plugins are for kubectl versions at or above 1.12.0 only. Check your version via ```kubectl version```
