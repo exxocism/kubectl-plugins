@@ -176,10 +176,16 @@ jobs:
           # Grant shell login for games user
           kubectl exec test-alter -- usermod -s /bin/sh games
           sleep 10
+          RETRY=0
+          while [ $RETRY -le 5 ]; do
             RESULT=$(kubectl ssh -o -u games test-alter -- whoami | grep 'games' | tail -n1 | tr -d '\r')
             if [[ $RESULT == "games" ]]; then
               printf "\n\u2705 Successfully logged in as games user.\n"
-          else
+              break
+            fi
+            ((RETRY++))
+          done
+          if [ $RETRY -gt 5 ]; then
             printf "\n\u274c Unable to login as games user.\n"
             exit 1
           fi
