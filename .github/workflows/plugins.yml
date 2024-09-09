@@ -127,7 +127,7 @@ jobs:
       - name: Sanity Check
         shell: zsh -l {0}
         run: |
-          sleep 30
+          sleep 15
           kubectl get pods -nkube-system && (printf "\n\u2705[PASS] Sanity Check (get pods)\n") || (printf "\n\u274c [FAIL] Unable to retrieve pod list.\n" && exit 1)
 
       - name: Install plugins
@@ -156,7 +156,7 @@ jobs:
         shell: zsh -l {0}
         run: |
           kubectl run test --restart=Never --image=debian --command=true -- sleep 500
-          sleep 20
+          sleep 10
           # Grant shell login for games user
           kubectl exec test -- usermod -s /bin/sh games
           sleep 10
@@ -172,14 +172,20 @@ jobs:
         shell: zsh -l {0}
         run: |
           kubectl run test-alter --restart=Never --image=debian --command=true -- sleep 500
-          sleep 20
+          sleep 10
           # Grant shell login for games user
           kubectl exec test-alter -- usermod -s /bin/sh games
           sleep 10
-          RESULT=$(kubectl ssh -o -u games test-alter -- whoami | grep 'games' | tail -n1 | tr -d '\r')
-          if [[ $RESULT == "games" ]]; then 
-            printf "\n\u2705 Successfully logged in as games user.\n"
-          else
+          RETRY=0
+          while [ $RETRY -le 5 ]; do
+            RESULT=$(kubectl ssh -o -u games test-alter -- whoami | grep 'games' | tail -n1 | tr -d '\r')
+            if [[ $RESULT == "games" ]]; then
+              printf "\n\u2705 Successfully logged in as games user.\n"
+              break
+            fi
+            ((RETRY++))
+          done
+          if [ $RETRY -gt 5 ]; then
             printf "\n\u274c Unable to login as games user.\n"
             exit 1
           fi
