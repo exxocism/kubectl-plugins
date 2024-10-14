@@ -1,0 +1,20 @@
+name: E2E Test
+on: issue_comment
+jobs:
+  pr_commented:
+    name: Trigger E2E Test
+    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, '/e2e-test') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Step 1
+        run: |
+          echo A comment on PR $NUMBER
+          echo And the name is $TEST
+          echo Email is $EMAIL
+        env:
+          NUMBER: ${{ github.event.issue.number }}
+          TEST: ${{ github.event.comment.body }}
+          EMAIL: ${{ secrets.EMAIL_SEC }}
