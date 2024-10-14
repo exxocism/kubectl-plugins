@@ -18,3 +18,15 @@ jobs:
           NUMBER: ${{ github.event.issue.number }}
           TEST: ${{ github.event.comment.body }}
           EMAIL: ${{ secrets.EMAIL_SEC }}
+
+      - name: comment result
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '👋 Thanks for reporting!'
+            })
