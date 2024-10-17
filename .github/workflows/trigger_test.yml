@@ -9,15 +9,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Output Run Env
-        run: printenv
-        shell: bash
-
-      - name: Dump GitHub context
-        env:
-          GITHUB_CONTEXT: ${{ toJson(github) }}
-        run: echo "$GITHUB_CONTEXT"
-
+      - uses: actions/github-script@v7
+        id: pull_request_payload
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            return github.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+      - run: echo "${{ steps.pull_request_payload.outputs.result }}"
       - name: comment start
         uses: actions/github-script@v7
         with:
@@ -27,6 +29,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: `### \uD83E\uDD16 E2E Test has started.
+            - By: @${{ github.triggering_actor }}
             - Branch: ${{ github.head_ref }}
             - Commit: ${{ github.event.pull_request.head.sha }}
             - Test link: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
