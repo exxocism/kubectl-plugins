@@ -14,10 +14,10 @@ jobs:
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
-            return github.pulls.get({
+            return github.issues.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              pull_number: context.issue.number
+              issue_number: context.issue.number
             });
       - run: echo "${{ steps.pull_request_payload.outputs.result }}"
       - name: comment start
