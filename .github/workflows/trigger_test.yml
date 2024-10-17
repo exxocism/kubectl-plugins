@@ -9,6 +9,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Output Run Env
+        run: printenv
+        shell: bash
+
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
+
       - name: comment start
         uses: actions/github-script@v7
         with:
