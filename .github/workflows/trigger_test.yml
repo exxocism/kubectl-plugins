@@ -17,7 +17,10 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '\u2705 E2E Test has started for PR ${{ github.event.issue.number }}'
+              body: `### \uD83E\uDD16 E2E Test has started.
+            - Branch: ${{ github.head_ref }}
+            - Commit: ${{ github.event.pull_request.head.sha }}
+            - Test link: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
             })
 
       - name: Step 1
