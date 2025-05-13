@@ -3,7 +3,7 @@ on: issue_comment
 jobs:
   pr_commented:
     name: Trigger E2E Test
-    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, '/e2e-test') }}
+    if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/e2e-test') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
