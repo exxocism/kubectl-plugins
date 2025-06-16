@@ -1,0 +1,16 @@
+name: Comment E2E Testing
+
+on:
+  workflow_dispatch: {} # Allows for this workflow to be triggered through the github.com UI or the gh CLI
+  issue_comment:
+    types: [created]
+
+jobs:
+  pr_commented:
+    if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/e2e-test') }}
+    name: Run E2E Tests
+    uses: ./.github/workflows/e2e_test.yml
+    with:
+      target_tiab: ${{ github.event.comment.body }}
+      skip_e2e: false
+    secrets: inherit
