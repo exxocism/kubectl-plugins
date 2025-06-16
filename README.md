@@ -5,7 +5,6 @@
   ```bash
   kubectl ssh -o <pod_name> -- /bin/bash
   ```
-dd
 
 # kubectl-plugins
 [![CI Status](https://github.com/exxocism/kubectl-plugins/workflows/CI/badge.svg)](https://github.com/exxocism/kubectl-plugins/actions)
