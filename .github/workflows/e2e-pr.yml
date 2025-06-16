@@ -1,0 +1,38 @@
+name: PR E2E Testing
+
+on:
+  workflow_dispatch: {} # Allows for this workflow to be triggered through the github.com UI or the gh CLI
+  pull_request:
+
+# Cancel previous runs if a new one is triggered (e.g. via new git push)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  parse_pr_body:
+    name: Parse PR Body
+    runs-on: ubuntu-latest
+    outputs:
+      target_tiab: ${{ steps.parse_target.outputs.target_tiab }}
+    steps:
+      - name: Parse PR Body
+        id: parse_target
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if [[ $PR_BODY =~ E2E_TEST_TARGET=([^[:space:]]+) ]]; then
+            TARGET="${BASH_REMATCH[1]}"
+            echo "target_tiab=/e2e-test $TARGET" >> $GITHUB_OUTPUT
+          else
+            echo "target_tiab=/e2e-test production-current" >> $GITHUB_OUTPUT
+          fi
+
+  pr_commented:
+    name: Run E2E Tests
+    needs: parse_pr_body
+    uses: ./.github/workflows/e2e_test.yml
+    with:
+      target_tiab: ${{ needs.parse_pr_body.outputs.target_tiab }}
+      skip_e2e: ${{ contains(github.event.pull_request.body, 'SKIP_E2E=true') }}
+    secrets: inherit
